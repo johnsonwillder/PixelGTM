@@ -14,6 +14,8 @@
     return;
   }
 
+  ensureFacebookClickCookie();
+
   var eventId = [
     eventName,
     Date.now(),
@@ -46,6 +48,34 @@
   function getCookie(name) {
     var match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
     return match ? decodeURIComponent(match[2]) : null;
+  }
+
+  function ensureFacebookClickCookie() {
+    if (getCookie("_fbc")) {
+      return;
+    }
+
+    var fbclid = getQueryParam("fbclid");
+    if (!fbclid) {
+      return;
+    }
+
+    var timestamp = Math.floor(Date.now());
+    var fbc = "fb.1." + timestamp + "." + fbclid;
+    var maxAge = 90 * 24 * 60 * 60;
+
+    document.cookie = [
+      "_fbc=" + encodeURIComponent(fbc),
+      "Max-Age=" + maxAge,
+      "Path=/",
+      "SameSite=Lax",
+      location.protocol === "https:" ? "Secure" : ""
+    ].filter(Boolean).join("; ");
+  }
+
+  function getQueryParam(name) {
+    var params = new URLSearchParams(window.location.search);
+    return params.get(name);
   }
 
   function readDataLayerValue(key) {
