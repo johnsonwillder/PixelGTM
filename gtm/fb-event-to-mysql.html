@@ -28,6 +28,8 @@
     content_ids: readDataLayerValue("content_ids")
   };
 
+  console.log("[FB Event Logger] Sending payload", payload);
+
   fetch("https://YOUR-WEBSITE-DOMAIN.com/fb-event-track.php", {
     method: "POST",
     headers: {
@@ -35,7 +37,13 @@
     },
     keepalive: true,
     body: JSON.stringify(payload)
-  }).catch(function () {});
+  }).then(function (response) {
+    return response.text().then(function (body) {
+      console.log("[FB Event Logger] Response", response.status, body);
+    });
+  }).catch(function (error) {
+    console.error("[FB Event Logger] Request failed", error);
+  });
 
   function getCookie(name) {
     var match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));

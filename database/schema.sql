@@ -12,7 +12,7 @@ CREATE TABLE fb_events (
   currency VARCHAR(8) NULL,
   content_ids JSON NULL,
   raw_payload JSON NULL,
-  ip_address VARBINARY(16) NULL,
+  ip_address VARCHAR(45) NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uniq_event_id (event_id),

@@ -80,7 +80,7 @@ try {
             :currency,
             :content_ids,
             :raw_payload,
-            INET6_ATON(:ip_address)
+            :ip_address
         )'
     );
 
