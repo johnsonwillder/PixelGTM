@@ -1,0 +1,63 @@
+<script>
+(function () {
+  var allowedEvents = {
+    ViewContent: true,
+    Lead: true,
+    CompleteRegistration: true,
+    InitiateCheckout: true,
+    Purchase: true
+  };
+
+  var eventName = "{{Event}}";
+
+  if (!allowedEvents[eventName]) {
+    return;
+  }
+
+  var eventId = [
+    eventName,
+    Date.now(),
+    Math.random().toString(36).slice(2)
+  ].join("-");
+
+  var payload = {
+    event_name: eventName,
+    event_id: eventId,
+    event_time: Math.floor(Date.now() / 1000),
+    page_url: window.location.href,
+    referrer: document.referrer || null,
+    user_agent: navigator.userAgent,
+    fbp: getCookie("_fbp"),
+    fbc: getCookie("_fbc"),
+    value: readDataLayerValue("value"),
+    currency: readDataLayerValue("currency"),
+    content_ids: readDataLayerValue("content_ids")
+  };
+
+  fetch("https://YOUR-WEBSITE-DOMAIN.com/fb-event-track.php", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    keepalive: true,
+    body: JSON.stringify(payload)
+  }).catch(function () {});
+
+  function getCookie(name) {
+    var match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
+    return match ? decodeURIComponent(match[2]) : null;
+  }
+
+  function readDataLayerValue(key) {
+    var dataLayer = window.dataLayer || [];
+
+    for (var i = dataLayer.length - 1; i >= 0; i--) {
+      if (dataLayer[i] && Object.prototype.hasOwnProperty.call(dataLayer[i], key)) {
+        return dataLayer[i][key];
+      }
+    }
+
+    return null;
+  }
+})();
+</script>
