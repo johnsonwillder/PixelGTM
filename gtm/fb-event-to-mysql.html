@@ -1,8 +1,27 @@
 <script>
 (function () {
+  var trackedEvents = {
+    PageView: true,
+    ViewContent: true,
+    Lead: true,
+    CompleteRegistration: true,
+    InitiateCheckout: true,
+    Purchase: true,
+    AddToCart: true,
+    Contact: true,
+    Search: true,
+    "gtm.js": true,
+    "gtm.dom": true,
+    "gtm.load": true,
+    "gtm.historyChange": true,
+    "gtm.formSubmit": true,
+    "gtm.linkClick": true,
+    "gtm.click": true
+  };
+
   var eventName = "{{Event}}";
 
-  if (!eventName) {
+  if (!eventName || !trackedEvents[eventName]) {
     return;
   }
 
@@ -25,10 +44,21 @@
     fbc: getCookie("_fbc"),
     value: readDataLayerValue("value"),
     currency: readDataLayerValue("currency"),
-    content_ids: readDataLayerValue("content_ids")
+    content_ids: readDataLayerValue("content_ids"),
+    content_name: readDataLayerValue("content_name"),
+    content_category: readDataLayerValue("content_category"),
+    content_type: readDataLayerValue("content_type"),
+    lead_type: readDataLayerValue("lead_type"),
+    button_text: readDataLayerValue("button_text"),
+    page_type: readDataLayerValue("page_type"),
+    registration_type: readDataLayerValue("registration_type"),
+    checkout_type: readDataLayerValue("checkout_type"),
+    checkout_step: readDataLayerValue("checkout_step"),
+    deposit_method: readDataLayerValue("deposit_method"),
+    purchase_type: readDataLayerValue("purchase_type"),
+    purchase_step: readDataLayerValue("purchase_step"),
+    payment_status: readDataLayerValue("payment_status")
   };
-
-  console.log("[FB Event Logger] Sending payload", payload);
 
   fetch("https://YOUR-WEBSITE-DOMAIN.com/fb-event-track.php", {
     method: "POST",
@@ -37,13 +67,7 @@
     },
     keepalive: true,
     body: JSON.stringify(payload)
-  }).then(function (response) {
-    return response.text().then(function (body) {
-      console.log("[FB Event Logger] Response", response.status, body);
-    });
-  }).catch(function (error) {
-    console.error("[FB Event Logger] Request failed", error);
-  });
+  }).catch(function () {});
 
   function getCookie(name) {
     var match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));

@@ -34,6 +34,30 @@ if ($eventName === '') {
     exit;
 }
 
+$trackedEvents = [
+    'PageView',
+    'ViewContent',
+    'Lead',
+    'CompleteRegistration',
+    'InitiateCheckout',
+    'Purchase',
+    'AddToCart',
+    'Contact',
+    'Search',
+    'gtm.js',
+    'gtm.dom',
+    'gtm.load',
+    'gtm.historyChange',
+    'gtm.formSubmit',
+    'gtm.linkClick',
+    'gtm.click',
+];
+
+if (!in_array($eventName, $trackedEvents, true)) {
+    echo json_encode(['ok' => true, 'skipped' => true]);
+    exit;
+}
+
 $eventTime = isset($payload['event_time']) && is_numeric($payload['event_time'])
     ? (int)$payload['event_time']
     : time();
