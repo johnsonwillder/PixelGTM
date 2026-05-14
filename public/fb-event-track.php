@@ -17,14 +17,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$allowedEvents = [
-    'ViewContent',
-    'Lead',
-    'CompleteRegistration',
-    'InitiateCheckout',
-    'Purchase',
-];
-
 $rawBody = file_get_contents('php://input');
 $payload = json_decode($rawBody ?: '', true);
 
@@ -36,9 +28,9 @@ if (!is_array($payload)) {
 
 $eventName = (string)($payload['event_name'] ?? '');
 
-if (!in_array($eventName, $allowedEvents, true)) {
+if ($eventName === '') {
     http_response_code(400);
-    echo json_encode(['ok' => false, 'error' => 'Event is not allowed']);
+    echo json_encode(['ok' => false, 'error' => 'Event name is required']);
     exit;
 }
 

@@ -1,16 +1,8 @@
 <script>
 (function () {
-  var allowedEvents = {
-    ViewContent: true,
-    Lead: true,
-    CompleteRegistration: true,
-    InitiateCheckout: true,
-    Purchase: true
-  };
-
   var eventName = "{{Event}}";
 
-  if (!allowedEvents[eventName]) {
+  if (!eventName) {
     return;
   }
 
