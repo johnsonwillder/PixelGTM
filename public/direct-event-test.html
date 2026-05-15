@@ -51,6 +51,7 @@
       send: sendEvent
     };
 
+    ensureFacebookBrowserCookie();
     ensureFacebookClickCookie();
 
     document.getElementById("sendViewContent").addEventListener("click", function () {
@@ -127,8 +128,8 @@
         page_url: window.location.href,
         referrer: document.referrer || null,
         user_agent: navigator.userAgent,
-        fbp: getCookie("_fbp"),
-        fbc: getCookie("_fbc"),
+        fbp: getFacebookBrowserId(),
+        fbc: getFacebookClickId(),
         value: null,
         currency: null,
         content_ids: null,
@@ -181,22 +182,56 @@
       return match ? decodeURIComponent(match[2]) : null;
     }
 
+    function getFacebookBrowserId() {
+      ensureFacebookBrowserCookie();
+      return getCookie("_fbp");
+    }
+
+    function getFacebookClickId() {
+      ensureFacebookClickCookie();
+      return getCookie("_fbc") || buildFacebookClickIdFromUrl();
+    }
+
+    function ensureFacebookBrowserCookie() {
+      if (getCookie("_fbp")) {
+        return;
+      }
+
+      var timestamp = Math.floor(Date.now());
+      var randomNumber = Math.floor(Math.random() * 10000000000);
+      var fbp = "fb.1." + timestamp + "." + randomNumber;
+      var maxAge = 90 * 24 * 60 * 60;
+
+      setCookie("_fbp", fbp, maxAge);
+    }
+
     function ensureFacebookClickCookie() {
       if (getCookie("_fbc")) {
         return;
       }
 
-      var fbclid = getQueryParam("fbclid");
-      if (!fbclid) {
+      var fbc = buildFacebookClickIdFromUrl();
+      if (!fbc) {
         return;
       }
 
-      var timestamp = Math.floor(Date.now());
-      var fbc = "fb.1." + timestamp + "." + fbclid;
       var maxAge = 90 * 24 * 60 * 60;
+      setCookie("_fbc", fbc, maxAge);
+    }
 
+    function buildFacebookClickIdFromUrl() {
+      var fbclid = getQueryParam("fbclid");
+      if (!fbclid) {
+        return null;
+      }
+
+      var timestamp = Math.floor(Date.now());
+      return "fb.1." + timestamp + "." + fbclid;
+    }
+
+    function setCookie(name, value, maxAge) {
       document.cookie = [
-        "_fbc=" + encodeURIComponent(fbc),
+        name + "=" + encodeURIComponent(value),
         "Max-Age=" + maxAge,
         "Path=/",
         "SameSite=Lax",

@@ -66,6 +66,12 @@ try {
     }
 
     foreach (array_chunk($events, 20) as $chunk) {
+        $chunk = filterEventsWithFacebookBrowserData($pdo, $chunk);
+
+        if (!$chunk) {
+            continue;
+        }
+
         $payload = buildCapiPayload($chunk, $testEventCode);
         $url = sprintf(
             'https://graph.facebook.com/%s/%s/events?access_token=%s',
@@ -156,6 +162,91 @@ function fetchUnsentEvents(PDO $pdo, array $sendableEvents, int $limit, int $max
     $stmt->execute(array_merge($sendableEvents, [$maxAttempts]));
 
     return $stmt->fetchAll();
+}
+
+function filterEventsWithFacebookBrowserData(PDO $pdo, array $events): array
+{
+    $sendable = [];
+
+    foreach ($events as $event) {
+        if (!empty($event['fbp']) || !empty($event['fbc'])) {
+            $sendable[] = $event;
+            continue;
+        }
+
+        markEventSkipped(
+            $pdo,
+            $event,
+            'Missing fbp and fbc. Event was stored but not sent to Meta CAPI.'
+        );
+    }
+
+    return $sendable;
+}
+
+function markEventSkipped(PDO $pdo, array $event, string $reason): void
+{
+    $stmt = $pdo->prepare(
+        "UPDATE fb_events
+         SET capi_status = 'skipped',
+             capi_last_error = :reason
+         WHERE id = :id"
+    );
+
+    $stmt->execute([
+        ':id' => $event['id'],
+        ':reason' => $reason,
+    ]);
+
+    insertSkippedCapiLog($pdo, $event, $reason);
+}
+
+function insertSkippedCapiLog(PDO $pdo, array $event, string $reason): void
+{
+    $payload = [
+        'skipped' => true,
+        'reason' => $reason,
+        'event' => [
+            'id' => $event['id'],
+            'event_name' => $event['event_name'],
+            'event_id' => eventId($event),
+        ],
+    ];
+
+    $stmt = $pdo->prepare(
+        'INSERT INTO meta_capi_logs (
+            fb_event_id,
+            event_name,
+            event_id,
+            request_url,
+            request_payload,
+            response_http_code,
+            response_body,
+            response_text,
+            success,
+            error_message
+        ) VALUES (
+            :fb_event_id,
+            :event_name,
+            :event_id,
+            :request_url,
+            :request_payload,
+            NULL,
+            NULL,
+            NULL,
+            0,
+            :error_message
+        )'
+    );
+
+    $stmt->execute([
+        ':fb_event_id' => $event['id'],
+        ':event_name' => $event['event_name'],
+        ':event_id' => eventId($event),
+        ':request_url' => 'SKIPPED',
+        ':request_payload' => json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+        ':error_message' => $reason,
+    ]);
 }
 
 function buildCapiPayload(array $events, string $testEventCode): array
