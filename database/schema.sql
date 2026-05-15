@@ -13,11 +13,16 @@ CREATE TABLE fb_events (
   content_ids JSON NULL,
   raw_payload JSON NULL,
   ip_address VARCHAR(45) NULL,
+  capi_status ENUM('pending','sent','failed','skipped') NOT NULL DEFAULT 'pending',
+  capi_attempts INT UNSIGNED NOT NULL DEFAULT 0,
+  capi_last_sent_at DATETIME NULL,
+  capi_last_error TEXT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uniq_event_id (event_id),
   KEY idx_event_name (event_name),
-  KEY idx_event_time (event_time)
+  KEY idx_event_time (event_time),
+  KEY idx_capi_status (capi_status, capi_attempts, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE meta_capi_logs (

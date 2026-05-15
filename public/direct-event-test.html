@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Direct Event Logger Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 24px;
+      color: #222;
+    }
+
+    button {
+      display: block;
+      width: 280px;
+      margin: 10px 0;
+      padding: 12px 14px;
+      cursor: pointer;
+    }
+
+    pre {
+      max-width: 980px;
+      min-height: 220px;
+      padding: 14px;
+      overflow: auto;
+      background: #f4f4f4;
+      border: 1px solid #ddd;
+    }
+  </style>
+</head>
+<body>
+  <h1>Direct Event Logger Test</h1>
+
+  <button id="sendViewContent">Send ViewContent</button>
+  <button id="sendLead">Send Lead</button>
+  <button id="sendCompleteRegistration">Send CompleteRegistration</button>
+  <button id="sendInitiateCheckout">Send InitiateCheckout</button>
+  <button id="sendPurchase">Send Purchase</button>
+  <button id="sendCustom">Send TestCustomEvent</button>
+
+  <h2>Last Payload / Response</h2>
+  <pre id="log">Ready</pre>
+
+  <script>
+  (function () {
+    var endpoint = "https://apitm.sukoi3666.com/fb-event-track.php";
+    var logBox = document.getElementById("log");
+
+    window.fbEventLogger = {
+      send: sendEvent
+    };
+
+    ensureFacebookClickCookie();
+
+    document.getElementById("sendViewContent").addEventListener("click", function () {
+      sendEvent("ViewContent", {
+        content_name: "direct test register page",
+        content_category: "register",
+        content_type: "page",
+        page_type: "register"
+      });
+    });
+
+    document.getElementById("sendLead").addEventListener("click", function () {
+      sendEvent("Lead", {
+        lead_type: "direct_test_button_click",
+        button_text: "Send Lead",
+        page_type: "register"
+      });
+    });
+
+    document.getElementById("sendCompleteRegistration").addEventListener("click", function () {
+      sendEvent("CompleteRegistration", {
+        registration_type: "register_success",
+        page_type: "register",
+        detect_method: "direct_test_button"
+      });
+    });
+
+    document.getElementById("sendInitiateCheckout").addEventListener("click", function () {
+      sendEvent("InitiateCheckout", {
+        checkout_type: "deposit",
+        checkout_step: "bank_account_shown",
+        deposit_method: "auto_bank",
+        currency: "THB"
+      });
+    });
+
+    document.getElementById("sendPurchase").addEventListener("click", function () {
+      sendEvent("Purchase", {
+        purchase_type: "deposit",
+        purchase_step: "deposit_success_done_click",
+        checkout_type: "deposit",
+        payment_status: "success",
+        deposit_method: "auto_slip",
+        value: 100,
+        currency: "THB",
+        content_ids: ["DIRECT-TEST-ORDER-001"]
+      });
+    });
+
+    document.getElementById("sendCustom").addEventListener("click", function () {
+      sendEvent("TestCustomEvent", {
+        content_name: "direct custom event test",
+        page_type: "debug"
+      });
+    });
+
+    function sendEvent(eventName, extraData) {
+      if (!eventName) {
+        return Promise.resolve();
+      }
+
+      extraData = extraData || {};
+
+      var eventId = [
+        eventName,
+        Date.now(),
+        Math.random().toString(36).slice(2)
+      ].join("-");
+
+      var payload = Object.assign({
+        event_name: eventName,
+        event_id: eventId,
+        event_time: Math.floor(Date.now() / 1000),
+        page_url: window.location.href,
+        referrer: document.referrer || null,
+        user_agent: navigator.userAgent,
+        fbp: getCookie("_fbp"),
+        fbc: getCookie("_fbc"),
+        value: null,
+        currency: null,
+        content_ids: null,
+        content_name: null,
+        content_category: null,
+        content_type: null,
+        lead_type: null,
+        button_text: null,
+        page_type: null,
+        registration_type: null,
+        checkout_type: null,
+        checkout_step: null,
+        deposit_method: null,
+        purchase_type: null,
+        purchase_step: null,
+        payment_status: null
+      }, extraData);
+
+      writeLog("Sending payload:\n" + JSON.stringify(payload, null, 2));
+
+      return fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        keepalive: true,
+        body: JSON.stringify(payload)
+      }).then(function (response) {
+        return response.text().then(function (body) {
+          writeLog(
+            "HTTP " + response.status + "\n\n" +
+            "Payload:\n" + JSON.stringify(payload, null, 2) + "\n\n" +
+            "Response:\n" + body
+          );
+        });
+      }).catch(function (error) {
+        writeLog(
+          "Request failed:\n" + String(error) + "\n\n" +
+          "Payload:\n" + JSON.stringify(payload, null, 2)
+        );
+      });
+    }
+
+    function writeLog(message) {
+      logBox.textContent = message;
+    }
+
+    function getCookie(name) {
+      var match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
+      return match ? decodeURIComponent(match[2]) : null;
+    }
+
+    function ensureFacebookClickCookie() {
+      if (getCookie("_fbc")) {
+        return;
+      }
+
+      var fbclid = getQueryParam("fbclid");
+      if (!fbclid) {
+        return;
+      }
+
+      var timestamp = Math.floor(Date.now());
+      var fbc = "fb.1." + timestamp + "." + fbclid;
+      var maxAge = 90 * 24 * 60 * 60;
+
+      document.cookie = [
+        "_fbc=" + encodeURIComponent(fbc),
+        "Max-Age=" + maxAge,
+        "Path=/",
+        "SameSite=Lax",
+        location.protocol === "https:" ? "Secure" : ""
+      ].filter(Boolean).join("; ");
+    }
+
+    function getQueryParam(name) {
+      var params = new URLSearchParams(window.location.search);
+      return params.get(name);
+    }
+  })();
+  </script>
+</body>
+</html>

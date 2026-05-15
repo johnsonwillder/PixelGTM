@@ -25,6 +25,7 @@ $graphVersion = 'v20.0';
 $testEventCode = ''; // Optional. Use only while testing in Meta Events Manager.
 
 $batchSize = 50;
+$maxAttempts = 5;
 $sendableEvents = [
     'PageView',
     'ViewContent',
@@ -54,7 +55,9 @@ try {
         exit(0);
     }
 
-    $events = fetchUnsentEvents($pdo, $sendableEvents, $batchSize);
+    markUnsendableEventsSkipped($pdo, $sendableEvents);
+
+    $events = fetchUnsentEvents($pdo, $sendableEvents, $batchSize, $maxAttempts);
 
     if (!$events) {
         releaseLock($pdo);
@@ -78,6 +81,7 @@ try {
 
         foreach ($chunk as $event) {
             insertCapiLog($pdo, $event, $url, $payload, $response, $success);
+            updateEventCapiStatus($pdo, $event, $response, $success);
         }
 
         echo sprintf(
@@ -113,7 +117,22 @@ function releaseLock(PDO $pdo): void
     }
 }
 
-function fetchUnsentEvents(PDO $pdo, array $sendableEvents, int $limit): array
+function markUnsendableEventsSkipped(PDO $pdo, array $sendableEvents): void
+{
+    $placeholders = implode(',', array_fill(0, count($sendableEvents), '?'));
+
+    $stmt = $pdo->prepare("
+        UPDATE fb_events
+        SET capi_status = 'skipped',
+            capi_last_error = 'Event is not configured for Meta CAPI'
+        WHERE capi_status = 'pending'
+          AND event_name NOT IN ($placeholders)
+    ");
+
+    $stmt->execute($sendableEvents);
+}
+
+function fetchUnsentEvents(PDO $pdo, array $sendableEvents, int $limit, int $maxAttempts): array
 {
     $placeholders = implode(',', array_fill(0, count($sendableEvents), '?'));
 
@@ -121,6 +140,8 @@ function fetchUnsentEvents(PDO $pdo, array $sendableEvents, int $limit): array
         SELECT e.*
         FROM fb_events e
         WHERE e.event_name IN ($placeholders)
+          AND e.capi_status IN ('pending', 'failed')
+          AND e.capi_attempts < ?
           AND NOT EXISTS (
               SELECT 1
               FROM meta_capi_logs l
@@ -132,7 +153,7 @@ function fetchUnsentEvents(PDO $pdo, array $sendableEvents, int $limit): array
     ";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute($sendableEvents);
+    $stmt->execute(array_merge($sendableEvents, [$maxAttempts]));
 
     return $stmt->fetchAll();
 }
@@ -302,6 +323,38 @@ function insertCapiLog(
         ':response_text' => $response['body'] !== '' ? $response['body'] : null,
         ':success' => $success ? 1 : 0,
         ':error_message' => $response['error'] ?? ($response['decoded']['error']['message'] ?? null),
+    ]);
+}
+
+function updateEventCapiStatus(PDO $pdo, array $event, array $response, bool $success): void
+{
+    $errorMessage = $response['error'] ?? ($response['decoded']['error']['message'] ?? null);
+
+    if ($success) {
+        $stmt = $pdo->prepare(
+            "UPDATE fb_events
+             SET capi_status = 'sent',
+                 capi_attempts = capi_attempts + 1,
+                 capi_last_sent_at = NOW(),
+                 capi_last_error = NULL
+             WHERE id = :id"
+        );
+
+        $stmt->execute([':id' => $event['id']]);
+        return;
+    }
+
+    $stmt = $pdo->prepare(
+        "UPDATE fb_events
+         SET capi_status = 'failed',
+             capi_attempts = capi_attempts + 1,
+             capi_last_error = :error_message
+         WHERE id = :id"
+    );
+
+    $stmt->execute([
+        ':id' => $event['id'],
+        ':error_message' => $errorMessage,
     ]);
 }
 
